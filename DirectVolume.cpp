@@ -1,4 +1,5 @@
 /*
+ * Copyright (c) 2015, NVIDIA CORPORATION.  All rights reserved.
  * Copyright (C) 2008 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -320,6 +321,7 @@ void DirectVolume::handleDiskRemoved(const char * /*devpath*/,
     int minor = atoi(evt->findParam("MINOR"));
     char msg[255];
     bool enabled;
+    int state;
 
     if (mVm->shareEnabled(getLabel(), "ums", &enabled) == 0 && enabled) {
         mVm->unshareVolume(getLabel(), "ums");
@@ -330,7 +332,15 @@ void DirectVolume::handleDiskRemoved(const char * /*devpath*/,
              getLabel(), getFuseMountpoint(), major, minor);
     mVm->getBroadcaster()->sendBroadcast(ResponseCode::VolumeDiskRemoved,
                                              msg, false);
-    setState(Volume::State_NoMedia);
+    state = getState();
+    if (state != Volume::State_Mounted) {
+        setState(Volume::State_NoMedia);
+        return;
+    }
+    if (Volume::unmountVol(true, false)) {
+        SLOGE("Failed to unmount volume on bad removal (%s)",
+             strerror(errno));
+    }
 }
 
 void DirectVolume::handlePartitionRemoved(const char * /*devpath*/,
